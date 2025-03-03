@@ -7,11 +7,11 @@ on:
           required: true
           type: string
         web_name:
-          description: "Web Name" 
+          description: "Web Name"
           required: true
           type: string
         network-name:
-          description: "Network" 
+          description: "Network"
           required: true
           type: string
         url:
@@ -28,7 +28,7 @@ jobs:
             run: git clone https://github.com/${{ github.repository }}.git . #clonamos el repositorio que queremos construir aquí, y evitamos el uso de actions/checkout@v4
           - name: "Run Semgrep"
             run: |
-              docker run -v $(pwd):/src semgrep/semgrep semgrep ci --config=p/security-audit 
+              docker run -v $(pwd):/src semgrep/semgrep semgrep ci --config=p/security-audit
             continue-on-error: true
 
     sca:
@@ -38,7 +38,7 @@ jobs:
         steps:
           - name: "Checkout Code"
             run: git clone https://github.com/${{ github.repository }}.git .
-    
+
           - name: "Run OWASP Dependency-Check"
             run: |
                 docker run --rm -v $(pwd):/src owasp/dependency-check-action --scan /src --out /src/dependency-check-report.html
@@ -89,7 +89,7 @@ jobs:
           - name: "Run Tests with Maven"
             run: ./mvnw test #Para ejecutar las pruebas unitarias
             continue-on-error: false
-    
+
     dast:
       name: "DAST - OWASP ZAP"
       runs-on: ubuntu-latest
@@ -103,7 +103,7 @@ jobs:
 
         - name: "Run WebGoat Container"
           run: |
-            docker run -d --name ${{ inputs.web_name }} --network ${{ inputs.network-name }}  -p 8080:8080 ${{ inputs.web_name }}/${{ inputs.web_name }} 
+            docker run -d --name ${{ inputs.web_name }} --network ${{ inputs.network-name }}  -p 8080:8080 ${{ inputs.web_name }}/${{ inputs.web_name }}
 
         - name: "Run OWASP ZAP Container"
           run: |
@@ -115,7 +115,7 @@ jobs:
           run: |
             docker stop webgoat zaproxy
             docker rm webgoat zaproxy
-            
+
     secrets-scan:
         name: "Secrets Scan - TruffleHog"
         runs-on: ubuntu-latest
@@ -123,9 +123,9 @@ jobs:
         steps:
         - name: "Checkout Code"
           run: git clone https://github.com/${{ github.repository }}.git .
-            
+
         - name: "Run TruffleHog"
           run: |
             docker run --rm -v $(pwd):/src trufflesecurity/trufflehog:latest github --repo https://github.com/${{ github.repository }} --debug
           continue-on-error: false
-            
+
