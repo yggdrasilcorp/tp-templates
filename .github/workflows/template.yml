@@ -1,0 +1,140 @@
+name: Build & Test
+on:
+    workflow_call: #llamada para poder ser usado en otros repositorios
+      inputs:
+        java-v:
+          description: "Java Version Required" #es obligatorio que se introduzca como parámetro la versión de java requerida
+          required: true
+          type: string
+        web_name:
+          description: "Web Name" 
+          required: true
+          type: string
+        network-name:
+          description: "Network" 
+          required: true
+          type: string
+        url:
+          description: "URL"
+          required: true
+          type: string
+      secrets:
+        SEMGREP_APP_TOKEN:
+          description: "SemGrep Token Required"
+          required: true
+        DOCKER_PASSWORD:
+          required: true
+        DOCKER_USERNAME:
+          required: true
+
+
+jobs:
+    sast:
+        name: "SAST - Semgrep"
+        runs-on: ubuntu-latest
+        steps:
+          - name: "Checkout Code"
+            run: git clone https://github.com/${{ github.repository }}.git . #clonamos el repositorio que queremos construir aquí, y evitamos el uso de actions/checkout@v4
+          - name: "Run Semgrep"
+            run: |
+              docker run -v $(pwd):/src semgrep/semgrep semgrep ci --config=p/security-audit 
+            continue-on-error: true
+
+    sca:
+        name: "SCA - OWASP Dependency-Check"
+        runs-on: ubuntu-latest
+        needs: sast
+        steps:
+          - name: "Checkout Code"
+            run: git clone https://github.com/${{ github.repository }}.git .
+    
+          - name: "Run OWASP Dependency-Check"
+            run: |
+                docker run --rm -v $(pwd):/src owasp/dependency-check-action --scan /src --out /src/dependency-check-report.html
+            continue-on-error: false
+
+    build:
+        name: "Build"
+        runs-on: ubuntu-latest
+        needs: sca
+        steps:
+            - name: "Checkout Code"
+              run: git clone https://github.com/${{ github.repository }}.git . #clonamos el repositorio que queremos construir aquí, y evitamos el uso de actions/checkout@v4
+
+            - name: "Setup Java"
+              uses: actions/setup-java@v4.2.1
+              with:
+                  distribution: 'temurin'
+                  java-version: 23
+                  architecture: x64
+                  cache: 'maven'
+
+            - name: "Build with Maven"
+              run: ./mvnw clean install #Construir la aplicación
+              continue-on-error: false #Si falla, se detiene el pipeline
+
+            - name: "Verificar si existe la carpeta target"
+              run: ls -l target  # Verificar si la carpeta 'target' existe
+
+            - name: "Build Docker Image"
+              run: docker build -t ${{ inputs.web_name }} .
+
+    test:
+      name: "Test"
+      runs-on: ubuntu-latest
+      needs: build #El job sólo se ejecutará si build fue correctamente ejecutado
+      steps:
+          - name: "Checkout Code"
+            run: git clone https://github.com/${{ github.repository }}.git .
+
+          - name: "Setup Java"
+            uses: actions/setup-java@v4.2.1
+            with:
+                distribution: 'temurin'
+                java-version: ${{ inputs.java-v }}
+                architecture: x64
+                cache: 'maven'
+
+          - name: "Run Tests with Maven"
+            run: ./mvnw test #Para ejecutar las pruebas unitarias
+            continue-on-error: false
+    
+    dast:
+      name: "DAST - OWASP ZAP"
+      runs-on: ubuntu-latest
+      needs: secrets-scan
+      steps:
+        - name: "Checkout Code"
+          run: git clone https://github.com/${{ github.repository }}.git .
+
+        - name: "Create Docker Network"
+          run: docker network create ${{ inputs.network-name }} # Crear la red Docker
+
+        - name: "Run WebGoat Container"
+          run: |
+            docker run -d --name ${{ inputs.web_name }} --network ${{ inputs.network-name }}  -p 8080:8080 ${{ inputs.web_name }}/${{ inputs.web_name }} 
+
+        - name: "Run OWASP ZAP Container"
+          run: |
+            docker run -d --name zaproxy --network ${{ inputs.network-name }} zaproxy/zap-stable zap-baseline.py -t ${{ inputs.url }}
+            sleep 30
+            docker logs -f zaproxy
+
+        - name: "Stop Containers"
+          run: |
+            docker stop webgoat zaproxy
+            docker rm webgoat zaproxy
+            
+    secrets-scan:
+        name: "Secrets Scan - TruffleHog"
+        runs-on: ubuntu-latest
+        needs: test
+        steps:
+        - name: "Checkout Code"
+          run: git clone https://github.com/${{ github.repository }}.git .
+            
+        - name: "Run TruffleHog"
+          run: |
+            docker run --rm -v $(pwd):/src trufflesecurity/trufflehog:latest github --repo https://github.com/${{ github.repository }} --debug
+          continue-on-error: false
+            
