@@ -60,7 +60,7 @@ jobs:
 
           - name: "Run OWASP Dependency-Check"
             run: |
-                docker run --rm -v $(pwd):/src owasp/dependency-check-action --scan /src --out /src/dependency-check-report.html --nvdApiKey bdf33448-1e99-4304-945b-9686a07f2de3
+                docker run --rm -v $(pwd):/src owasp/dependency-check-action --scan /src --out /src/dependency-check-report.html --nvdApiKey bdf33448-1e99-4304-945b-9686a07f2de3 --failOnCVSS 7
             continue-on-error: false
 
     build:
