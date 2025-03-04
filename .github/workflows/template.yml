@@ -18,6 +18,12 @@ on:
           description: "URL"
           required: true
           type: string
+      secrets:
+        NVD_API_KEY:
+          description: "NVD API KEY required"
+          required: true
+
+
 
 jobs:
     secrets-scan:
@@ -54,7 +60,7 @@ jobs:
 
           - name: "Run OWASP Dependency-Check"
             run: |
-                docker run --rm -v $(pwd):/src owasp/dependency-check-action --scan /src --out /src/dependency-check-report.html
+                docker run --rm -v $(pwd):/src -e NVD_API_KEY=${{ secrets.NVD_API_KEY }} owasp/dependency-check-action --scan /src --out /src/dependency-check-report.html
             continue-on-error: false
 
     build:
