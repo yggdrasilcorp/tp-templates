@@ -28,7 +28,7 @@ on:
 jobs:
     secrets-scan:
       name: "Secrets Scan - TruffleHog"
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-22.04
       steps:
       - name: "Checkout Code"
         run: git clone https://github.com/${{ github.repository }}.git .
@@ -40,7 +40,7 @@ jobs:
         
     sast:
         name: "SAST - Semgrep"
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-22.04
         needs: secrets-scan
         steps:
           - name: "Checkout Code"
@@ -52,7 +52,7 @@ jobs:
 
     sca:
         name: "SCA - OWASP Dependency-Check"
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-22.04
         needs: sast
         steps:
           - name: "Checkout Code"
@@ -65,7 +65,7 @@ jobs:
 
     build:
         name: "Build"
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-22.04
         needs: sca
         steps:
             - name: "Checkout Code"
@@ -85,7 +85,7 @@ jobs:
 
     test:
       name: "Test"
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-22.04
       needs: build #El job sólo se ejecutará si build fue correctamente ejecutado
       steps:
           - name: "Checkout Code"
@@ -105,7 +105,7 @@ jobs:
 
     dast:
       name: "DAST - OWASP ZAP"
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-22.04
       needs: test
       steps:
         - name: "Checkout Code"
